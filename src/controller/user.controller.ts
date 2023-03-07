@@ -1,8 +1,11 @@
 import { prisma } from '../config/db';
 import * as argon2 from "argon2";
+import * as jwt from "jsonwebtoken";
+
 import express, { Application, Request, Response } from "express";
 const app: Application = express();
-app.use(express.json());
+
+
 
 
 
@@ -11,22 +14,42 @@ app.use(express.json());
 
 
 export const Login = async (req: Request, res: Response) => {
-    try {
-        const { email } = req.body;
-        const userlogin = await prisma.user.findFirst({
-            
-            where:email,
+    
+        const { email} = req.body;
+        const user = await prisma.user.findUnique({
 
-            
+            where: {
+                email,
+            }
+
+
         });
-        const vi = await argon2.verify("$argon2id$v=19$m=65536,t=3,p=4$CNIKPxqjVSt92JLMoN7EtA$dPIrN3CXM5xhVcfhVpdoM76jQm0lpscBxbEgmVFSvvM", req.body.password)
-console.log(vi);
+
+
 
         //   ES6 if else
-        userlogin ? res.json({ message: "worng email or password !!" }) : res.json({ message: `weclome back ${email}` });
-    } catch (error) {
-        console.log(error);
+        if (!user) { res.json({ message: "worng email address!!" }); 
     }
+         else if 
+
+            (!await argon2.verify(user.password as string, req.body.password)){
+            res.json({ message: `worng password !! ` });
+        }else{
+            let token = jwt.sign({ 
+                id: user.id,
+                
+             }, process.env.MY_SECRETKEY as string,{expiresIn:'3h'});
+
+            res.status(200).send({ message:`Hello Aging ${user.email} `,
+            token:token
+        });
+        }
+
+
+    
+    // catch (error) {
+    //     console.log(error);
+    // }
 };
 
 
@@ -43,7 +66,6 @@ export const Hello = async (req: Request, res: Response) => {
 
 
 
-
 // Creat
 export const createUser = async (req: Request, res: Response) => {
     let hashedPassword = await argon2.hash(req.body.password);
@@ -51,7 +73,6 @@ export const createUser = async (req: Request, res: Response) => {
         const newUser = await prisma.user.create({
             data: {
                 email: req.body.email,
-                name: req.body.name,
                 password: hashedPassword
             }
         });
@@ -66,5 +87,52 @@ export const createUser = async (req: Request, res: Response) => {
     }
 }
 
+
+export const updateUser= async (req: Request, res: Response) => {
+
+    try {
+        // let { id}= req.body
+        let { email,password } = req.body
+
+        const updateUser = await prisma.user.update({
+            where: {
+             id:res.locals.user.id,
+            },
+            data:{
+                email,
+
+                
+            }
+
+        })
+        res.json({ "msg": "The user  has been updated", updateUser });
+    } catch (error) {
+        res.json(error)
+
+    }
+
+}
+
+
+
+export const deleteUser= async (req: Request, res: Response) => {
+
+    try {
+    
+
+        const deleteUser = await prisma.user.delete({
+            where: {
+             id:res.locals.user.id,
+            },
+         
+
+        });
+        res.json({ "msg": "The user  has been deleted", deleteUser });
+    } catch (error) {
+        res.json(error)
+
+    }
+
+}
 
 
